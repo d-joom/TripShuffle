@@ -1,96 +1,67 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, FlatList, Image, StyleSheet, TouchableOpacity, Button } from "react-native";
+import { View, Text, TextInput, Button, FlatList, Image, TouchableOpacity, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 
 export default function ParticipantScreen() {
-    const [name, setName] = useState("");
     const [participants, setParticipants] = useState([]);
+    const [newName, setNewName] = useState("");
 
     useEffect(() => {
         loadParticipants();
     }, []);
 
     const loadParticipants = async () => {
-        const data = await AsyncStorage.getItem("participants");
-        if (data) setParticipants(JSON.parse(data));
+        const stored = await AsyncStorage.getItem("participants");
+        if (stored) setParticipants(JSON.parse(stored));
     };
 
-    const saveParticipants = async (list) => {
-        await AsyncStorage.setItem("participants", JSON.stringify(list));
+    const saveParticipants = async (data) => {
+        setParticipants(data);
+        await AsyncStorage.setItem("participants", JSON.stringify(data));
     };
 
     const addParticipant = () => {
-        if (!name) return;
-        const newParticipant = {
-            id: Date.now().toString(),
-            name,
-            image: null,
-        };
-        const newList = [...participants, newParticipant];
-        setParticipants(newList);
-        saveParticipants(newList);
-        setName("");
+        if (!newName.trim()) return;
+        const updated = [...participants, { id: Date.now().toString(), name: newName, image: null }];
+        setNewName("");
+        saveParticipants(updated);
+    };
+
+    const removeParticipant = (id) => {
+        const updated = participants.filter(p => p.id !== id);
+        saveParticipants(updated);
     };
 
     const pickImage = async (id) => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 1,
-        });
-
+        const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.5 });
         if (!result.canceled) {
-            const newList = participants.map((p) =>
-                p.id === id ? { ...p, image: result.assets[0].uri } : p
-            );
-            setParticipants(newList);
-            saveParticipants(newList);
+            const updated = participants.map(p => p.id === id ? { ...p, image: result.assets[0].uri } : p);
+            saveParticipants(updated);
         }
-    };
-
-    const deleteParticipant = (id) => {
-        const newList = participants.filter((p) => p.id !== id);
-        setParticipants(newList);
-        saveParticipants(newList);
     };
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>참가자 추가</Text>
-            <View style={styles.addContainer}>
-                <TextInput
-                    placeholder="이름 입력"
-                    value={name}
-                    onChangeText={setName}
-                    style={styles.input}
-                />
-                <Button title="추가" onPress={addParticipant} />
-            </View>
-
+            <TextInput
+                placeholder="이름 입력"
+                value={newName}
+                onChangeText={setNewName}
+                style={styles.input}
+            />
+            <Button title="추가" onPress={addParticipant} />
             <FlatList
                 data={participants}
-                keyExtractor={(item) => item.id}
+                keyExtractor={item => item.id}
                 renderItem={({ item }) => (
                     <View style={styles.participant}>
                         <TouchableOpacity onPress={() => pickImage(item.id)}>
-                            {item.image ? (
-                                <Image source={{ uri: item.image }} style={styles.image} />
-                            ) : (
-                                <View style={styles.defaultImage} />
-                            )}
+                            <Image source={item.image ? { uri: item.image } : require("../assets/default.png")} style={styles.image} />
                         </TouchableOpacity>
-                        <Text style={styles.nameText}>{item.name}</Text>
-                        <TouchableOpacity
-                            style={styles.deleteButton}
-                            onPress={() => deleteParticipant(item.id)}
-                        >
-                            <Text style={styles.deleteButtonText}>삭제</Text>
-                        </TouchableOpacity>
+                        <Text style={styles.name}>{item.name}</Text>
+                        <Button title="삭제" onPress={() => removeParticipant(item.id)} />
                     </View>
                 )}
-                style={{ marginTop: 20, width: "100%" }}
             />
         </View>
     );
@@ -98,13 +69,8 @@ export default function ParticipantScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, padding: 20 },
-    title: { fontSize: 24, marginBottom: 10, textAlign: "center" },
-    addContainer: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
-    input: { flex: 1, borderWidth: 1, padding: 8, marginRight: 10 },
-    participant: { flexDirection: "row", alignItems: "center", marginVertical: 5 },
-    image: { width: 40, height: 40, borderRadius: 20 },
-    defaultImage: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#ccc" },
-    nameText: { flex: 1, marginLeft: 10 },
-    deleteButton: { backgroundColor: "red", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 5 },
-    deleteButtonText: { color: "white", fontWeight: "bold" },
+    input: { borderWidth: 1, borderColor: "#ccc", padding: 5, marginVertical: 10, borderRadius: 5 },
+    participant: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+    image: { width: 40, height: 40, borderRadius: 20, marginRight: 10, backgroundColor: "#ccc" },
+    name: { flex: 1 }
 });

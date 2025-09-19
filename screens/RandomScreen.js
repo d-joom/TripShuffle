@@ -1,95 +1,101 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, Button, FlatList, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import { View, Text, Button, TextInput, FlatList, StyleSheet, TouchableOpacity } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function RandomScreen({ navigation }) {
-    const [groups, setGroups] = useState([]);
     const [participants, setParticipants] = useState([]);
+    const [groups, setGroups] = useState([]);
+    const [newGroupName, setNewGroupName] = useState("");
 
     useEffect(() => {
         loadParticipants();
+        loadGroups();
     }, []);
 
     const loadParticipants = async () => {
-        const data = await AsyncStorage.getItem("participants");
-        if (data) setParticipants(JSON.parse(data));
+        const stored = await AsyncStorage.getItem("participants");
+        if (stored) setParticipants(JSON.parse(stored));
+    };
+
+    const loadGroups = async () => {
+        const stored = await AsyncStorage.getItem("groups");
+        if (stored) setGroups(JSON.parse(stored));
+    };
+
+    const saveGroups = async (data) => {
+        setGroups(data);
+        await AsyncStorage.setItem("groups", JSON.stringify(data));
     };
 
     const addGroup = () => {
-        const newGroup = { id: Date.now().toString(), name: `그룹 ${groups.length + 1}`, count: 1 };
-        setGroups([...groups, newGroup]);
+        if (!newGroupName.trim()) return;
+        const updated = [...groups, { id: Date.now().toString(), name: newGroupName, size: 1 }];
+        setNewGroupName("");
+        saveGroups(updated);
     };
 
-    const updateGroupName = (id, name) => setGroups(groups.map(g => (g.id === id ? { ...g, name } : g)));
-
-    const updateGroupCount = (id, newCount) => {
-        if (newCount < 1) return;
-        const totalOther = groups.reduce((sum, g) => (g.id !== id ? sum + g.count : sum), 0);
-        if (totalOther + newCount > participants.length) {
-            Alert.alert("인원 초과", "참가자 수를 초과할 수 없습니다.");
-            return;
-        }
-        setGroups(groups.map(g => (g.id === id ? { ...g, count: newCount } : g)));
+    const removeGroup = (id) => {
+        saveGroups(groups.filter(g => g.id !== id));
     };
 
-    const deleteGroup = (id) => setGroups(groups.filter(g => g.id !== id));
+    const changeGroupSize = (id, delta) => {
+        const updated = groups.map(g => g.id === id ? { ...g, size: Math.max(1, g.size + delta) } : g);
+        saveGroups(updated);
+    };
 
-    // 🔹 랜덤 배정 + ResultScreen 이동
-    const shuffleAndNavigate = () => {
-        if (groups.length === 0) return Alert.alert("그룹 없음", "먼저 그룹을 추가해주세요.");
+    const changeGroupName = (id, name) => {
+        const updated = groups.map(g => g.id === id ? { ...g, name } : g);
+        saveGroups(updated);
+    };
 
-        const totalNeeded = groups.reduce((sum, g) => sum + g.count, 0);
-        if (totalNeeded > participants.length) return Alert.alert("인원 부족", "참가자가 부족합니다.");
+    const randomAssign = () => {
+        if (participants.length === 0) return alert("참가자가 없습니다.");
+        if (groups.length === 0) return alert("그룹이 없습니다. 먼저 그룹을 추가하세요.");
+        const totalGroupSize = groups.reduce((sum, g) => sum + g.size, 0);
+        if (totalGroupSize > participants.length) return alert("그룹 인원이 참가자를 초과합니다.");
 
         const shuffled = [...participants].sort(() => Math.random() - 0.5);
         let index = 0;
-        const assignment = groups.map(g => {
-            const members = shuffled.slice(index, index + g.count);
-            index += g.count;
-            return { name: g.name, members };
+        const assigned = groups.map(g => {
+            const members = shuffled.slice(index, index + g.size);
+            index += g.size;
+            return { ...g, members };
         });
 
-        // 🔹 ResultScreen으로 결과 전달
-        navigation.navigate("ResultScreen", { assignment });
+        navigation.navigate("Result", { assigned });
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>랜덤 배정하기</Text>
+        <View style={{ flex: 1, padding: 20 }}>
+            <TextInput placeholder="그룹 이름" value={newGroupName} onChangeText={setNewGroupName} style={styles.input} />
             <Button title="그룹 추가" onPress={addGroup} />
 
             <FlatList
                 data={groups}
-                keyExtractor={(item) => item.id}
+                keyExtractor={item => item.id}
                 renderItem={({ item }) => (
                     <View style={styles.group}>
-                        <TextInput style={styles.groupNameInput} value={item.name} onChangeText={(text) => updateGroupName(item.id, text)} />
-                        <View style={styles.groupControls}>
-                            <Button title="-" onPress={() => updateGroupCount(item.id, item.count - 1)} />
-                            <TextInput style={styles.input} keyboardType="number-pad" value={item.count.toString()} onChangeText={(text) => updateGroupCount(item.id, parseInt(text) || 1)} />
-                            <Button title="+" onPress={() => updateGroupCount(item.id, item.count + 1)} />
-                            <TouchableOpacity style={styles.deleteButton} onPress={() => deleteGroup(item.id)}>
-                                <Text style={styles.deleteText}>삭제</Text>
-                            </TouchableOpacity>
+                        <TextInput
+                            value={item.name}
+                            onChangeText={text => changeGroupName(item.id, text)}
+                            style={[styles.input, { flex: 1 }]}
+                        />
+                        <View style={{ flexDirection: "row", alignItems: "center" }}>
+                            <Button title="-" onPress={() => changeGroupSize(item.id, -1)} />
+                            <Text style={{ marginHorizontal: 5 }}>{item.size}</Text>
+                            <Button title="+" onPress={() => changeGroupSize(item.id, 1)} />
                         </View>
+                        <Button title="삭제" onPress={() => removeGroup(item.id)} />
                     </View>
                 )}
-                style={{ marginTop: 20 }}
             />
 
-            <Button title="랜덤 배정" onPress={shuffleAndNavigate} style={{ marginTop: 20 }} />
-            <Text style={{ marginTop: 20 }}>총 참가자: {participants.length}</Text>
+            <Button title="랜덤 배정" onPress={randomAssign} />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20 },
-    title: { fontSize: 24, textAlign: "center", marginBottom: 20 },
-    group: { marginVertical: 10 },
-    groupNameInput: { fontSize: 18, borderWidth: 1, padding: 5, marginBottom: 5 },
-    groupControls: { flexDirection: "row", alignItems: "center" },
-    input: { borderWidth: 1, width: 50, textAlign: "center", marginHorizontal: 5, padding: 5 },
-    deleteButton: { marginLeft: 10, backgroundColor: "red", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 5 },
-    deleteText: { color: "white", fontWeight: "bold" },
+    input: { borderWidth: 1, borderColor: "#ccc", padding: 5, borderRadius: 5, marginVertical: 5 },
+    group: { flexDirection: "row", alignItems: "center", marginVertical: 5 }
 });
