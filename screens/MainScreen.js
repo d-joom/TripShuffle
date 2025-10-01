@@ -1,41 +1,48 @@
 import React from "react";
-import { View, Button, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import HeaderBar from "../components/HeaderBar";
 
 export default function MainScreen({ navigation }) {
     return (
         <View style={styles.container}>
-            <View style={styles.buttonWrapper}>
-                <Button
-                    title="참가자 설정"
+            <HeaderBar showBack={false} />
+
+            <View style={styles.content}>
+                <TouchableOpacity
+                    style={styles.btn}
                     onPress={() => navigation.navigate("Participant")}
-                />
-            </View>
-            <View style={styles.buttonWrapper}>
-                <Button
-                    title="랜덤 배정"
+                >
+                    <Text style={styles.btnText}>참가자 설정</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.btn}
                     onPress={() => navigation.navigate("Random")}
-                />
-            </View>
-            <View style={styles.buttonWrapper}>
-                <Button
-                    title="랜덤 뽑기"
-                    onPress={() => navigation.navigate("RandomPick")}
-                />
+                >
+                    <Text style={styles.btnText}>랜덤 그룹 배정</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.btn}
+                    onPress={() => navigation.navigate("Draw")}
+                >
+                    <Text style={styles.btnText}>랜덤 뽑기</Text>
+                </TouchableOpacity>
             </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,                   // 화면 전체 사용
-        justifyContent: "center",   // 세로 중앙
-        alignItems: "center",       // 가로 중앙
-        backgroundColor: "#fff",    // 배경색
-        padding: 20
+    container: { flex: 1, backgroundColor: "#fff" },
+    content: { flex: 1, justifyContent: "center", alignItems: "center" },
+    btn: {
+        backgroundColor: "#4CAF50",
+        padding: 16,
+        marginVertical: 10,
+        borderRadius: 10,
+        width: 200,
+        alignItems: "center",
     },
-    buttonWrapper: {
-        width: "80%",              // 버튼 너비
-        marginVertical: 10         // 버튼 간격
-    }
+    btnText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
 });

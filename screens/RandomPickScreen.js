@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, Button, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import HeaderBar from "../components/HeaderBar";
 
 export default function RandomPickScreen({ navigation }) {
     const [participants, setParticipants] = useState([]);
@@ -27,6 +28,7 @@ export default function RandomPickScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
+            <HeaderBar showBack={true} />
             <Text>뽑을 인원 수:</Text>
             <TextInput
                 style={styles.input}

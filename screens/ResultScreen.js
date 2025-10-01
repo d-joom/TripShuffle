@@ -1,48 +1,51 @@
 import React, { useState } from "react";
-import { View, Text, FlatList, Button, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, Button } from "react-native";
 
-export default function ResultScreen({ route }) {
-    const { assigned } = route.params;
-    const [revealedIndex, setRevealedIndex] = useState(assigned.map(() => 0));
+interface Group {
+    name: string;
+    participants: string[];
+}
 
-    const revealNext = (groupIdx) => {
-        setRevealedIndex(prev =>
-            prev.map((val, idx) => (idx === groupIdx ? Math.min(val + 1, assigned[idx].members.length) : val))
-        );
+const groups: Group[] = [
+    { name: "A조", participants: ["철수", "영희", "민수"] },
+    { name: "B조", participants: ["지수", "준호", "수빈"] },
+];
+
+export default function RandomRevealScreen() {
+    const [revealed, setRevealed] = useState < string[] > ([]); // 공개된 참가자들
+
+    const handleReveal = () => {
+        // 아직 공개되지 않은 모든 참가자 풀 만들기
+        const all = groups.flatMap((g) => g.participants);
+        const remaining = all.filter((p) => !revealed.includes(p));
+
+        if (remaining.length === 0) return; // 다 공개되었으면 종료
+
+        // 무작위로 1명 뽑기
+        const next = remaining[Math.floor(Math.random() * remaining.length)];
+        setRevealed([...revealed, next]);
     };
 
-    const revealAll = () => setRevealedIndex(assigned.map(g => g.members.length));
-
     return (
-        <View style={styles.container}>
-            <Button title="Skip" onPress={revealAll} />
-            <FlatList
-                data={assigned}
-                keyExtractor={item => item.id}
-                renderItem={({ item, index }) => (
-                    <View style={styles.groupBlock}>
-                        <Text style={styles.groupName}>{item.name}</Text>
-                        <TouchableOpacity onPress={() => revealNext(index)} style={styles.membersContainer}>
-                            {item.members.map((m, idx) =>
-                                idx < revealedIndex[index] ? (
-                                    <Text key={idx} style={styles.member}>- {m.name}</Text>
-                                ) : (
-                                    <Text key={idx} style={styles.hiddenMember}>- ???</Text>
-                                )
-                            )}
-                        </TouchableOpacity>
-                    </View>
-                )}
-            />
+        <View style={{ flex: 1, padding: 20 }}>
+            {groups.map((group) => (
+                <View key={group.name} style={{ marginBottom: 20 }}>
+                    <Text style={{ fontSize: 20, fontWeight: "bold" }}>{group.name}</Text>
+                    {group.participants.map((p) => (
+                        <Text
+                            key={p}
+                            style={{
+                                fontSize: 16,
+                                color: revealed.includes(p) ? "black" : "gray",
+                            }}
+                        >
+                            {revealed.includes(p) ? p : "???"}
+                        </Text>
+                    ))}
+                </View>
+            ))}
+
+            <Button title="한 명 공개하기" onPress={handleReveal} />
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-    groupBlock: { marginBottom: 15 },
-    groupName: { fontSize: 18, fontWeight: "bold", marginBottom: 5 },
-    membersContainer: { padding: 10, backgroundColor: "#f0f0f0", borderRadius: 8 },
-    member: { marginLeft: 10, marginTop: 2, fontSize: 16 },
-    hiddenMember: { marginLeft: 10, marginTop: 2, fontSize: 16, color: "#ccc" },
-});

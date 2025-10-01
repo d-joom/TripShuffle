@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, FlatList, Button, TouchableOpacity, StyleSheet } from "react-native";
+import HeaderBar from "../components/HeaderBar";
 
 export default function RandomPickResultScreen({ route }) {
     const { picked } = route.params;
@@ -10,6 +11,7 @@ export default function RandomPickResultScreen({ route }) {
 
     return (
         <View style={styles.container}>
+            <HeaderBar showBack={true} />
             <Button title="Skip" onPress={revealAll} />
             <FlatList
                 data={picked}

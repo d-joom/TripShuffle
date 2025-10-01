@@ -1,101 +1,162 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Button, TextInput, FlatList, StyleSheet, TouchableOpacity } from "react-native";
+import {
+    View,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    FlatList,
+    StyleSheet,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import HeaderBar from "../components/HeaderBar";
 
 export default function RandomScreen({ navigation }) {
-    const [participants, setParticipants] = useState([]);
     const [groups, setGroups] = useState([]);
-    const [newGroupName, setNewGroupName] = useState("");
+    const [groupName, setGroupName] = useState("");
+    const [groupSize, setGroupSize] = useState("2");
 
     useEffect(() => {
-        loadParticipants();
-        loadGroups();
+        loadData();
     }, []);
 
-    const loadParticipants = async () => {
-        const stored = await AsyncStorage.getItem("participants");
-        if (stored) setParticipants(JSON.parse(stored));
+    const loadData = async () => {
+        const data = await AsyncStorage.getItem("groups");
+        if (data) setGroups(JSON.parse(data));
     };
 
-    const loadGroups = async () => {
-        const stored = await AsyncStorage.getItem("groups");
-        if (stored) setGroups(JSON.parse(stored));
-    };
-
-    const saveGroups = async (data) => {
+    const saveData = async (data) => {
         setGroups(data);
         await AsyncStorage.setItem("groups", JSON.stringify(data));
     };
 
     const addGroup = () => {
-        if (!newGroupName.trim()) return;
-        const updated = [...groups, { id: Date.now().toString(), name: newGroupName, size: 1 }];
-        setNewGroupName("");
-        saveGroups(updated);
+        if (!groupName.trim()) return;
+        const newGroup = {
+            id: Date.now().toString(),
+            name: groupName,
+            size: parseInt(groupSize),
+        };
+        saveData([...groups, newGroup]);
+        setGroupName("");
+        setGroupSize("2");
     };
 
     const removeGroup = (id) => {
-        saveGroups(groups.filter(g => g.id !== id));
+        saveData(groups.filter((g) => g.id !== id));
     };
 
-    const changeGroupSize = (id, delta) => {
-        const updated = groups.map(g => g.id === id ? { ...g, size: Math.max(1, g.size + delta) } : g);
-        saveGroups(updated);
-    };
+    const randomize = async () => {
+        const participantsData = await AsyncStorage.getItem("participants");
+        if (!participantsData) return;
+        const participants = JSON.parse(participantsData);
 
-    const changeGroupName = (id, name) => {
-        const updated = groups.map(g => g.id === id ? { ...g, name } : g);
-        saveGroups(updated);
-    };
+        if (groups.length === 0 || participants.length === 0) {
+            alert("참가자와 그룹을 먼저 설정하세요!");
+            return;
+        }
 
-    const randomAssign = () => {
-        if (participants.length === 0) return alert("참가자가 없습니다.");
-        if (groups.length === 0) return alert("그룹이 없습니다. 먼저 그룹을 추가하세요.");
-        const totalGroupSize = groups.reduce((sum, g) => sum + g.size, 0);
-        if (totalGroupSize > participants.length) return alert("그룹 인원이 참가자를 초과합니다.");
+        const totalCapacity = groups.reduce((sum, g) => sum + g.size, 0);
+        if (participants.length > totalCapacity) {
+            alert("참가자 수가 그룹 수용 인원보다 많습니다!");
+            return;
+        }
 
+        // 랜덤 섞기
         const shuffled = [...participants].sort(() => Math.random() - 0.5);
         let index = 0;
-        const assigned = groups.map(g => {
+        const results = groups.map((g) => {
             const members = shuffled.slice(index, index + g.size);
             index += g.size;
             return { ...g, members };
         });
 
-        navigation.navigate("Result", { assigned });
+        navigation.navigate("Result", { results });
     };
 
+    const renderItem = ({ item }) => (
+        <View style={styles.groupCard}>
+            <Text style={styles.groupText}>
+                {item.name} ({item.size}인)
+            </Text>
+            <TouchableOpacity onPress={() => removeGroup(item.id)}>
+                <Text style={styles.delete}>✕</Text>
+            </TouchableOpacity>
+        </View>
+    );
+
     return (
-        <View style={{ flex: 1, padding: 20 }}>
-            <TextInput placeholder="그룹 이름" value={newGroupName} onChangeText={setNewGroupName} style={styles.input} />
-            <Button title="그룹 추가" onPress={addGroup} />
+        <View style={styles.container}>
+            <HeaderBar showBack={true} />
+            <View style={styles.inputRow}>
+                <TextInput
+                    value={groupName}
+                    onChangeText={setGroupName}
+                    placeholder="그룹 입력"
+                    style={styles.input}
+                />
+                <TextInput
+                    value={groupSize}
+                    onChangeText={setGroupSize}
+                    placeholder="인원"
+                    keyboardType="numeric"
+                    style={[styles.input, { width: 60, marginLeft: 8 }]}
+                />
+                <TouchableOpacity style={styles.addButton} onPress={addGroup}>
+                    <Text style={styles.addButtonText}>추가</Text>
+                </TouchableOpacity>
+            </View>
 
             <FlatList
                 data={groups}
-                keyExtractor={item => item.id}
-                renderItem={({ item }) => (
-                    <View style={styles.group}>
-                        <TextInput
-                            value={item.name}
-                            onChangeText={text => changeGroupName(item.id, text)}
-                            style={[styles.input, { flex: 1 }]}
-                        />
-                        <View style={{ flexDirection: "row", alignItems: "center" }}>
-                            <Button title="-" onPress={() => changeGroupSize(item.id, -1)} />
-                            <Text style={{ marginHorizontal: 5 }}>{item.size}</Text>
-                            <Button title="+" onPress={() => changeGroupSize(item.id, 1)} />
-                        </View>
-                        <Button title="삭제" onPress={() => removeGroup(item.id)} />
-                    </View>
-                )}
+                keyExtractor={(item) => item.id}
+                renderItem={renderItem}
+                style={styles.list}
             />
 
-            <Button title="랜덤 배정" onPress={randomAssign} />
+            <TouchableOpacity style={styles.mainButton} onPress={randomize}>
+                <Text style={styles.mainButtonText}>랜덤 그룹 배정</Text>
+            </TouchableOpacity>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    input: { borderWidth: 1, borderColor: "#ccc", padding: 5, borderRadius: 5, marginVertical: 5 },
-    group: { flexDirection: "row", alignItems: "center", marginVertical: 5 }
+    container: { flex: 1, backgroundColor: "#fff", padding: 20 },
+    inputRow: { flexDirection: "row", marginBottom: 20 },
+    input: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: "#ccc",
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        backgroundColor: "#fff",
+    },
+    addButton: {
+        backgroundColor: "#007bff",
+        borderRadius: 8,
+        paddingHorizontal: 15,
+        justifyContent: "center",
+        marginLeft: 10,
+    },
+    addButtonText: { color: "#fff", fontWeight: "600" },
+    list: { marginTop: 10 },
+    groupCard: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        backgroundColor: "#f9f9f9",
+        padding: 12,
+        borderRadius: 10,
+        marginBottom: 10,
+    },
+    groupText: { fontSize: 16, fontWeight: "500" },
+    delete: { fontSize: 18, color: "red", paddingHorizontal: 10 },
+    mainButton: {
+        marginTop: 20,
+        backgroundColor: "#007bff",
+        paddingVertical: 15,
+        borderRadius: 10,
+        alignItems: "center",
+    },
+    mainButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });
